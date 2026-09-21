@@ -1,0 +1,18 @@
+{
+  "name": "global-working-context",
+  "version": "1.0.0",
+  "description": "Installer for GLOBAL_WORKING_CONTEXT.md",
+  "type": "module",
+  "bin": {
+    "global-working-context": "./bin/install.mjs"
+  },
+  "files": [
+    "bin",
+    "GLOBAL_WORKING_CONTEXT.md",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}
