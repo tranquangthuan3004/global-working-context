@@ -8,7 +8,7 @@
   },
   "files": [
     "bin",
-    "GLOBAL_WORKING_CONTEXT.md",
+    "template",
     "README.md"
   ],
   "engines": {

@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const FILE_NAME = 'GLOBAL_WORKING_CONTEXT.md';
-const sourcePath = path.resolve(__dirname, '..', FILE_NAME);
+const sourcePath = path.resolve(__dirname, '..', 'template', FILE_NAME);
 const destinationPath = path.resolve(process.cwd(), FILE_NAME);
 
 if (!fs.existsSync(sourcePath)) {
