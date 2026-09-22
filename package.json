@@ -1,6 +1,6 @@
 {
   "name": "global-working-context",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Installer for GLOBAL_WORKING_CONTEXT.md",
   "type": "module",
   "bin": {
@@ -9,6 +9,7 @@
   "files": [
     "bin",
     "template",
+    "profiles",
     "README.md"
   ],
   "engines": {
