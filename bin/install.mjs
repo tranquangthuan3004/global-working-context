@@ -7,94 +7,167 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const FILE_NAME = 'GLOBAL_WORKING_CONTEXT.md';
-const CANONICAL_PROFILES = ['astra-luna', 'gemini-antigravity'];
+const GLOBAL_CONTEXT_FILE = 'GLOBAL_WORKING_CONTEXT.md';
+const SKILLS_DIR = 'skills';
 
-const PROFILE_MAP = {
-  'astra-luna': 'ASTRA_LUNA.md',
-  'astra_luna': 'ASTRA_LUNA.md',
-  'gemini-antigravity': 'GEMINI_ANTIGRAVITY.md',
-  'gemini_antigravity': 'GEMINI_ANTIGRAVITY.md',
-};
+// --- Argument parsing ---
+const args = process.argv.slice(2);
 
-function printUsage() {
-  console.log(`Usage:
-  npx global-working-context [--profile <name>]
-  npx github:tranquangthuan3004/global-working-context [--profile <name>]
-
-Options:
-  --profile <name>  Agent profile to install (default: astra-luna)
-                    Supported profiles: ${CANONICAL_PROFILES.join(', ')}
-  -h, --help        Show this help message
-`);
+const PROFILE_FILES = new Map([
+  ['astra-luna', 'ASTRA_LUNA.md'],
+  ['gemini-antigravity', 'GEMINI_ANTIGRAVITY.md'],
+]);
+const usage = 'Usage: global-working-context [--profile <name>] | --skill <name> | --help';
+if (args.length === 1 && ['-h', '--help'].includes(args[0])) {
+  console.log(usage);
+  console.log('No arguments: neutral Global Context. Explicit profiles: astra-luna, gemini-antigravity.');
+  process.exit(0);
+}
+const options = new Map();
+for (let i = 0; i < args.length; i++) {
+  const token = args[i];
+  const equalsProfile = token.startsWith('--profile=');
+  const option = equalsProfile ? '--profile' : token;
+  const value = equalsProfile ? token.slice('--profile='.length) : args[++i];
+  if (!['--skill', '--profile'].includes(option) || options.has(option) || !value || value.startsWith('-')) {
+    console.error(`Error: Invalid or repeated option, or missing value near "${token}".`);
+    console.error(usage);
+    process.exit(1);
+  }
+  options.set(option, value);
+}
+const skillName = options.get('--skill') ?? null;
+const requestedProfile = options.get('--profile');
+const profileName = requestedProfile === undefined ? null : requestedProfile.toLowerCase().trim().replaceAll('_', '-');
+if (profileName !== null && (!PROFILE_FILES.has(profileName) || skillName)) {
+  console.error('Error: --profile supports astra-luna or gemini-antigravity and cannot be combined with --skill.');
+  console.error(usage);
+  process.exit(1);
 }
 
-const args = process.argv.slice(2);
-let selectedProfile = 'astra-luna';
+// --- Dispatch ---
+if (skillName) {
+  installSkill(skillName);
+} else {
+  installGlobalContext(profileName);
+}
 
-for (let i = 0; i < args.length; i++) {
-  const arg = args[i];
-  if (arg === '-h' || arg === '--help') {
-    printUsage();
-    process.exit(0);
-  } else if (arg === '--profile') {
-    if (i + 1 >= args.length) {
-      console.error('Error: Missing value for --profile argument.\n');
-      printUsage();
-      process.exit(1);
+// --- Global Context installation ---
+function installGlobalContext(profileName) {
+  const sourcePath = path.resolve(__dirname, '..', 'template', GLOBAL_CONTEXT_FILE);
+  const destinationPath = path.resolve(process.cwd(), GLOBAL_CONTEXT_FILE);
+
+  if (!fs.existsSync(sourcePath)) {
+    console.error(`Error: Packaged source file not found at: ${sourcePath}`);
+    process.exit(1);
+  }
+
+  if (destinationExists(destinationPath)) {
+    console.error(`Error: "${destinationPath}" already exists. Will not overwrite.`);
+    process.exit(1);
+  }
+
+  try {
+    if (profileName) {
+      const profilePath = path.resolve(__dirname, '..', 'profiles', PROFILE_FILES.get(profileName));
+      const core = fs.readFileSync(sourcePath, 'utf8');
+      const profile = fs.readFileSync(profilePath, 'utf8');
+      const combined = `${core.trimEnd()}\n\n---\n\n# Active Agent Profile\n\n${profile.trim()}\n`;
+      fs.writeFileSync(destinationPath, combined, { flag: 'wx' });
+    } else {
+      fs.copyFileSync(sourcePath, destinationPath, fs.constants.COPYFILE_EXCL);
     }
-    selectedProfile = args[++i];
-  } else if (arg.startsWith('--profile=')) {
-    selectedProfile = arg.slice('--profile='.length);
-  } else {
-    console.error(`Error: Unknown argument "${arg}".\n`);
-    printUsage();
+    console.log(`Successfully installed ${GLOBAL_CONTEXT_FILE}${profileName ? ` (profile: ${profileName})` : ''}`);
+    console.log(`Destination: ${destinationPath}`);
+  } catch (err) {
+    console.error(`Error: Failed to copy ${GLOBAL_CONTEXT_FILE}: ${err.message}`);
     process.exit(1);
   }
 }
 
-const normalizedKey = selectedProfile.toLowerCase().trim();
-const profileFileName = PROFILE_MAP[normalizedKey];
+// --- Skill installation ---
+function installSkill(name) {
+  // Validate skill name: only word characters and hyphens; no path separators or dots
+  if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
+    console.error(`Error: Invalid skill name "${name}". Skill names may only contain letters, digits, hyphens, and underscores.`);
+    process.exit(1);
+  }
 
-if (!profileFileName) {
-  console.error(`Error: Invalid profile "${selectedProfile}".`);
-  console.error(`Valid profile names: ${CANONICAL_PROFILES.join(', ')}\n`);
-  printUsage();
-  process.exit(1);
+  const skillSourceDir = path.resolve(__dirname, '..', SKILLS_DIR, name);
+  const skillSourceFile = path.join(skillSourceDir, 'SKILL.md');
+
+  // Confirm source is within the package skills directory (defense in depth)
+  const skillsRoot = path.resolve(__dirname, '..', SKILLS_DIR);
+  if (!skillSourceDir.startsWith(skillsRoot + path.sep)) {
+    console.error(`Error: Skill path traversal detected for "${name}".`);
+    process.exit(1);
+  }
+
+  if (!fs.existsSync(skillSourceFile)) {
+    const available = listAvailableSkills();
+    console.error(`Error: Skill "${name}" not found.`);
+    if (available.length > 0) {
+      console.error(`Available skills: ${available.join(', ')}`);
+    } else {
+      console.error('No skills are currently available in this package.');
+    }
+    process.exit(1);
+  }
+
+  // Destination is always skills/<name>/SKILL.md relative to cwd.
+  // Agent-specific placement (e.g. .agents/skills/) is the user's responsibility.
+  // This installer does not silently choose an agent-specific location.
+  const destDir = path.resolve(process.cwd(), SKILLS_DIR, name);
+  const destFile = path.join(destDir, 'SKILL.md');
+
+  if (destinationExists(destFile)) {
+    console.error(`Error: "${destFile}" already exists. Will not overwrite.`);
+    process.exit(1);
+  }
+
+  try {
+    // Reject linked destination directories to avoid writing outside this project.
+    for (const directory of [path.dirname(destDir), destDir]) {
+      try {
+        const stat = fs.lstatSync(directory);
+        if (stat.isSymbolicLink() || !stat.isDirectory()) {
+          throw new Error(`Destination directory must be a regular directory: ${directory}`);
+        }
+      } catch (err) {
+        if (err.code !== 'ENOENT') throw err;
+      }
+    }
+    fs.mkdirSync(destDir, { recursive: true });
+    fs.copyFileSync(skillSourceFile, destFile, fs.constants.COPYFILE_EXCL);
+    console.log(`Successfully installed skill: ${name}`);
+    console.log(`Destination: ${destFile}`);
+  } catch (err) {
+    console.error(`Error: Failed to install skill "${name}": ${err.message}`);
+    process.exit(1);
+  }
 }
 
-// Canonical display name
-const canonicalName = normalizedKey.replace('_', '-');
-
-const coreSourcePath = path.resolve(__dirname, '..', 'template', FILE_NAME);
-const profileSourcePath = path.resolve(__dirname, '..', 'profiles', profileFileName);
-const destinationPath = path.resolve(process.cwd(), FILE_NAME);
-
-if (!fs.existsSync(coreSourcePath)) {
-  console.error(`Error: Packaged core template not found at: ${coreSourcePath}`);
-  process.exit(1);
+// --- List available skills ---
+function listAvailableSkills() {
+  const skillsRoot = path.resolve(__dirname, '..', SKILLS_DIR);
+  try {
+    return fs.readdirSync(skillsRoot, { withFileTypes: true })
+      .filter(d => d.isDirectory() && fs.existsSync(path.join(skillsRoot, d.name, 'SKILL.md')))
+      .map(d => d.name);
+  } catch (err) {
+    console.error(`Error: Cannot list skills at "${skillsRoot}": ${err.message}. Check that the packaged skills directory exists and is readable, or reinstall the package.`);
+    process.exit(1);
+  }
 }
 
-if (!fs.existsSync(profileSourcePath)) {
-  console.error(`Error: Packaged profile file not found at: ${profileSourcePath}`);
-  process.exit(1);
-}
-
-if (fs.existsSync(destinationPath)) {
-  console.error(`Error: "${destinationPath}" already exists. Will not overwrite.`);
-  process.exit(1);
-}
-
-try {
-  const coreContent = fs.readFileSync(coreSourcePath, 'utf8');
-  const profileContent = fs.readFileSync(profileSourcePath, 'utf8');
-
-  const combined = `${coreContent.trimEnd()}\n\n---\n\n# Active Agent Profile\n\n${profileContent.trim()}\n`;
-
-  fs.writeFileSync(destinationPath, combined, { flag: 'wx' });
-  console.log(`Successfully installed ${FILE_NAME} (profile: ${canonicalName})`);
-  console.log(`Destination: ${destinationPath}`);
-} catch (err) {
-  console.error(`Error: Failed to install ${FILE_NAME}: ${err.message}`);
-  process.exit(1);
+// lstat also detects dangling symlinks, which existsSync would miss.
+function destinationExists(destination) {
+  try {
+    fs.lstatSync(destination);
+    return true;
+  } catch (err) {
+    if (err.code === 'ENOENT') return false;
+    console.error(`Error: Cannot inspect destination "${destination}": ${err.message}`);
+    process.exit(1);
+  }
 }

@@ -1,7 +1,7 @@
 {
   "name": "global-working-context",
   "version": "1.1.0",
-  "description": "Installer for GLOBAL_WORKING_CONTEXT.md",
+  "description": "Global Working Context and Agent Skills installer for AI coding workflows",
   "type": "module",
   "bin": {
     "global-working-context": "./bin/install.mjs"
@@ -10,6 +10,7 @@
     "bin",
     "template",
     "profiles",
+    "skills",
     "README.md"
   ],
   "engines": {
