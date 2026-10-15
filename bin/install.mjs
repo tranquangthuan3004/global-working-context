@@ -13,24 +13,22 @@ const SKILLS_DIR = 'skills';
 // --- Argument parsing ---
 const args = process.argv.slice(2);
 
-const PROFILE_FILES = new Map([
-  ['astra-luna', 'ASTRA_LUNA.md'],
-  ['gemini-antigravity', 'GEMINI_ANTIGRAVITY.md'],
-]);
-const usage = 'Usage: global-working-context [--profile <name>] | --skill <name> [--target codex] | --help';
+const usage = 'Usage: global-working-context [--skill <name> [--target codex]] | --help';
+if (args.some(arg => arg === '--profile' || arg.startsWith('--profile='))) {
+  console.error('Error: --profile has been removed. Run without it for the neutral Global Context; choose workers through the active host/session.');
+  process.exit(1);
+}
 if (args.length === 1 && ['-h', '--help'].includes(args[0])) {
   console.log(usage);
-  console.log('No arguments: neutral Global Context. Explicit profiles: astra-luna, gemini-antigravity.');
+  console.log('No arguments: neutral Global Context. Skills: --skill <name>, optionally --target codex.');
   process.exit(0);
 }
 const options = new Map();
-for (let i = 0; i < args.length; i++) {
-  const token = args[i];
-  const equalsProfile = token.startsWith('--profile=');
-  const option = equalsProfile ? '--profile' : token;
-  const value = equalsProfile ? token.slice('--profile='.length) : args[++i];
-  if (!['--skill', '--target', '--profile'].includes(option) || options.has(option) || !value || value.startsWith('-')) {
-    console.error(`Error: Invalid or repeated option, or missing value near "${token}".`);
+for (let i = 0; i < args.length; i += 2) {
+  const option = args[i];
+  const value = args[i + 1];
+  if (!['--skill', '--target'].includes(option) || options.has(option) || !value || value.startsWith('-')) {
+    console.error(`Error: Invalid or repeated option, or missing value near "${option}".`);
     console.error(usage);
     process.exit(1);
   }
@@ -43,23 +41,16 @@ if (target && (!skillName || target !== 'codex')) {
   console.error(usage);
   process.exit(1);
 }
-const requestedProfile = options.get('--profile');
-const profileName = requestedProfile === undefined ? null : requestedProfile.toLowerCase().trim().replaceAll('_', '-');
-if (profileName !== null && (!PROFILE_FILES.has(profileName) || skillName)) {
-  console.error('Error: --profile supports astra-luna or gemini-antigravity and cannot be combined with --skill.');
-  console.error(usage);
-  process.exit(1);
-}
 
 // --- Dispatch ---
 if (skillName) {
   installSkill(skillName, target);
 } else {
-  installGlobalContext(profileName);
+  installGlobalContext();
 }
 
 // --- Global Context installation ---
-function installGlobalContext(profileName) {
+function installGlobalContext() {
   const sourcePath = path.resolve(__dirname, '..', 'template', GLOBAL_CONTEXT_FILE);
   const destinationPath = path.resolve(process.cwd(), GLOBAL_CONTEXT_FILE);
 
@@ -74,16 +65,8 @@ function installGlobalContext(profileName) {
   }
 
   try {
-    if (profileName) {
-      const profilePath = path.resolve(__dirname, '..', 'profiles', PROFILE_FILES.get(profileName));
-      const core = fs.readFileSync(sourcePath, 'utf8');
-      const profile = fs.readFileSync(profilePath, 'utf8');
-      const combined = `${core.trimEnd()}\n\n---\n\n# Active Agent Profile\n\n${profile.trim()}\n`;
-      fs.writeFileSync(destinationPath, combined, { flag: 'wx' });
-    } else {
-      fs.copyFileSync(sourcePath, destinationPath, fs.constants.COPYFILE_EXCL);
-    }
-    console.log(`Successfully installed ${GLOBAL_CONTEXT_FILE}${profileName ? ` (profile: ${profileName})` : ''}`);
+    fs.copyFileSync(sourcePath, destinationPath, fs.constants.COPYFILE_EXCL);
+    console.log(`Successfully installed ${GLOBAL_CONTEXT_FILE}`);
     console.log(`Destination: ${destinationPath}`);
   } catch (err) {
     console.error(`Error: Failed to install ${GLOBAL_CONTEXT_FILE}: ${err.message}`);

@@ -55,25 +55,25 @@ npx github:<github-user>/<repo-name> --skill plan-feature --target codex
 | `--skill <name>` | `skills/<name>/SKILL.md` |
 | `--skill <name> --target codex` | `.agents/skills/<name>/SKILL.md` |
 
-`--target` and `--skill` may appear in either order. `--target` requires `--skill`; `codex` is the only supported target. Install selected skills with separate commands. Runtime-profile and standalone help options are described below. There is no install-all, force, output-path, or listing flag. An unknown skill exits nonzero and reports available names. Unknown, repeated, missing-value, and positional arguments fail without installing files.
+`--target` and `--skill` may appear in either order. `--target` requires `--skill`; `codex` is the only supported target. Install selected skills with separate commands. Standalone `-h` or `--help` displays usage. There is no install-all, force, output-path, or listing flag. An unknown skill exits nonzero and reports available names. Unknown, repeated, missing-value, and positional arguments fail without installing files.
 
 The installer refuses existing destination files, including dangling links. Skill destination directories must be regular directories; symlinks/junctions at any destination level are rejected. Names cannot contain path separators or dots. Existing files are never intentionally overwritten. These checks address existing links, not malicious concurrent filesystem replacement. No user-wide configuration is written.
 
-## Runtime profiles
+## Session worker selection
 
-No arguments install the neutral template with flexible delegation. Runtime profiles are included **only** when explicitly requested; there is no default Astra/Luna profile.
+The primary model remains the one configured by the host. Worker preferences belong to the active conversation, not to installed runtime profiles or persistent model configuration.
 
-```bash
-npx global-working-context --profile astra-luna
-npx global-working-context --profile=gemini-antigravity
-npx global-working-context --help
-```
+Reuse an existing session choice. Otherwise establish worker preferences only when the user preconfigures them or immediately before actual delegation. Offer only choices confirmed by the current host/tools; when the host manages worker models without selection controls, explain that limit instead of inventing a picker. Preserve host/user reasoning defaults unless a supported change is authorized; task overrides apply only to that task.
 
-The Global Context output combines the common template with `# Active Agent Profile` and the chosen profile. `astra-luna` uses an already configured Astra Light orchestrator and Luna workers, with no direct primary execution or recursive worker delegation. `gemini-antigravity` uses an already configured Gemini agent in Antigravity for direct execution without subagents. Both profile files are preserved in `profiles/`.
+If a requested worker configuration is unavailable, report it and resolve a supported choice. Do not silently select a different model or bypass the preference with direct execution. Direct execution is a fallback only when delegation itself is unavailable. Reuse current capability evidence and refresh it on relevant host/user changes or actual failures; loading Markdown does not grant capabilities.
 
-A selected profile specializes only the common execution-topology and reasoning-role defaults. Other common rules still apply. Profiles never configure or switch models, reasoning effort, or agent settings, override higher-priority runtime instructions, or override explicit user configuration. If the host is incompatible, report the conflict instead of silently substituting a model or profile.
+## Migration from runtime profiles
 
-Profile values accept case-insensitive hyphen or underscore aliases and surrounding whitespace. Both `--profile <name>` and `--profile=<name>` work. Profiles cannot be combined with `--skill` or `--target`; help (`-h`/`--help`) must be used alone. Existing Global Context destinations are protected for all profiles, including dangling links.
+Version 1.3.0 removes `--profile` and both legacy runtime-profile files. This is a **breaking CLI change**: old separated/equal-sign options and aliases now fail with a controlled nonzero exit before installing anything, including mixed Skill/profile commands. They never silently fall back to neutral installation.
+
+Use no arguments for the neutral Global Context. For a new session, supply that context and establish supported worker preferences in the conversation when needed. Existing installed Global Context copies are not modified; replace or migrate them deliberately after reviewing any project-specific customizations. The installer still refuses overwrites.
+
+This unpublished personal toolkit uses 1.3.0 as a development version: at the migration check the public npm registry returned 404, the repository had no tags/releases, and its installation examples described future npm publication. The version increment does not make the removed CLI compatible. No publish or release is performed here.
 
 ## Discovery and activation
 
@@ -115,15 +115,15 @@ node --check bin/install.mjs
 git diff --check
 ```
 
-The dependency-free Node test runner validates ten skill documents, both installation destinations, explicit runtime profiles, duplicate protection, malformed arguments, traversal, linked ancestors, dangling links, listing failures, and npm packaging. All installer executions use dedicated OS temporary workspaces. Tests remove only their own generated workspace. Packaging tests install the local tarball without lifecycle scripts and exercise the npm-generated executable. Windows file-symlink checks need OS permission; unsupported file links are reported as omitted while directory-link checks remain required. Tests are development files and intentionally excluded from the runtime npm package.
+The dependency-free Node test runner validates ten skill documents, both installation destinations, retired-option rejection, duplicate protection, malformed arguments, traversal, linked ancestors, dangling links, listing failures, and npm packaging. All installer executions use dedicated OS temporary workspaces. Tests remove only their own generated workspace. Packaging tests install the local tarball without lifecycle scripts and exercise the npm-generated executable. Windows file-symlink checks need OS permission; unsupported file links are reported as omitted while directory-link checks remain required. Tests are development files and intentionally excluded from the runtime npm package.
 
 For manual package testing, create another temporary directory and use absolute paths:
 
 ```bash
 npm pack /absolute/path/to/global-working-context --pack-destination /absolute/path/to/temp
 # From an empty temporary project:
-npx --package /absolute/path/to/temp/global-working-context-1.2.0.tgz global-working-context
-npx --package /absolute/path/to/temp/global-working-context-1.2.0.tgz global-working-context --skill review-code --target codex
+npx --package /absolute/path/to/temp/global-working-context-1.3.0.tgz global-working-context
+npx --package /absolute/path/to/temp/global-working-context-1.3.0.tgz global-working-context --skill review-code --target codex
 ```
 
 ## Repository and future skills
@@ -131,8 +131,6 @@ npx --package /absolute/path/to/temp/global-working-context-1.2.0.tgz global-wor
 ```text
 bin/install.mjs
 template/GLOBAL_WORKING_CONTEXT.md
-profiles/ASTRA_LUNA.md
-profiles/GEMINI_ANTIGRAVITY.md
 skills/<skill-name>/SKILL.md       # ten workflows listed above
 test/toolkit.test.mjs
 package.json

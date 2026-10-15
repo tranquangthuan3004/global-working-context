@@ -34,12 +34,6 @@ function equalSource(destination, source) {
   assert.deepEqual(fs.readFileSync(destination), fs.readFileSync(path.join(repo, source)));
 }
 
-function equalProfile(destination, profileFile) {
-  const core = fs.readFileSync(path.join(repo, 'template/GLOBAL_WORKING_CONTEXT.md'), 'utf8');
-  const profile = fs.readFileSync(path.join(repo, 'profiles', profileFile), 'utf8');
-  assert.equal(fs.readFileSync(destination, 'utf8'), `${core.trimEnd()}\n\n---\n\n# Active Agent Profile\n\n${profile.trim()}\n`);
-}
-
 after(() => {
   // Delete only the unique temporary workspace created by this test process.
   assert.equal(path.dirname(path.resolve(workspace)), path.resolve(os.tmpdir()));
@@ -82,48 +76,32 @@ test('default Global Context installation and duplicate protection preserve byte
   equalSource(destination, 'template/GLOBAL_WORKING_CONTEXT.md');
 });
 
-test('runtime profiles are explicit, normalized, complete, and refuse overwrite', () => {
-  for (const [args, file] of [
-    [['--profile', 'astra-luna'], 'ASTRA_LUNA.md'],
-    [['--profile=astra_luna'], 'ASTRA_LUNA.md'],
-    [['--profile', ' ASTRA_LUNA '], 'ASTRA_LUNA.md'],
-    [['--profile', 'gemini-antigravity'], 'GEMINI_ANTIGRAVITY.md'],
-    [['--profile=gemini_antigravity'], 'GEMINI_ANTIGRAVITY.md'],
-    [['--profile', ' GEMINI_ANTIGRAVITY '], 'GEMINI_ANTIGRAVITY.md'],
-  ]) {
-    const cwd = fresh();
-    const destination = path.join(cwd, 'GLOBAL_WORKING_CONTEXT.md');
-    assert.equal(invoke(args, cwd).status, 0);
-    equalProfile(destination, file);
-    assert.equal(invoke(args, cwd).status, 1);
-    equalProfile(destination, file);
-  }
-});
-
 test('standalone help writes nothing', () => {
   for (const flag of ['-h', '--help']) {
     const cwd = fresh();
     const result = invoke([flag], cwd);
     assert.equal(result.status, 0);
-    assert(result.stdout.includes('--profile'));
+    assert(!result.stdout.includes('--profile'));
+    assert(result.stdout.includes('--skill'));
     assert(result.stdout.includes('--target codex'));
     assert.deepEqual(fs.readdirSync(cwd), []);
   }
 });
 
-test('missing packaged runtime profile fails before writing the destination', () => {
-  const fixture = fresh();
-  const cwd = fresh();
-  fs.mkdirSync(path.join(fixture, 'bin'));
-  fs.mkdirSync(path.join(fixture, 'template'));
-  const source = path.join(fixture, 'bin/install.mjs');
-  fs.copyFileSync(cli, source);
-  fs.copyFileSync(path.join(repo, 'template/GLOBAL_WORKING_CONTEXT.md'), path.join(fixture, 'template/GLOBAL_WORKING_CONTEXT.md'));
-  const result = invoke(['--profile', 'astra-luna'], cwd, source);
-  assert.equal(result.status, 1);
-  assert(result.stderr.startsWith('Error: Failed to install GLOBAL_WORKING_CONTEXT.md:'));
-  assert(!result.stderr.includes('    at '));
-  assert.deepEqual(fs.readdirSync(cwd), []);
+test('removed runtime-profile options fail without creating a neutral output', () => {
+  for (const args of [
+    ['--profile', 'astra-luna'], ['--profile=astra_luna'], ['--profile', ' ASTRA_LUNA '],
+    ['--profile', 'gemini-antigravity'], ['--profile=gemini_antigravity'], ['--profile', ' GEMINI_ANTIGRAVITY '],
+    ['--skill', 'review-code', '--profile=astra-luna'],
+    ['--profile', 'gemini-antigravity', '--skill', 'review-code', '--target', 'codex'],
+    ['--help', '--profile=astra-luna'],
+  ]) {
+    const cwd = fresh();
+    const result = invoke(args, cwd);
+    assert.equal(result.status, 1);
+    assert(result.stderr.includes('--profile has been removed'));
+    assert.deepEqual(fs.readdirSync(cwd), []);
+  }
 });
 
 for (const target of [null, 'codex']) {
@@ -201,10 +179,10 @@ test('linked destination ancestors are rejected at every portable and Codex leve
 });
 
 test('dangling destination links and directory conflicts cannot be overwritten', async (t) => {
-  for (const mode of ['global', 'portable', 'codex', 'astra-luna', 'gemini-antigravity']) {
+  for (const mode of ['global', 'portable', 'codex']) {
     await t.test(`${mode}: dangling destination link`, (linkTest) => {
       const cwd = fresh();
-      const isGlobal = ['global', 'astra-luna', 'gemini-antigravity'].includes(mode);
+      const isGlobal = mode === 'global';
       const file = isGlobal ? 'GLOBAL_WORKING_CONTEXT.md'
         : `${mode === 'codex' ? '.agents/' : ''}skills/review-code/SKILL.md`;
       const destination = path.join(cwd, file);
@@ -219,8 +197,7 @@ test('dangling destination links and directory conflicts cannot be overwritten',
         }
         throw error;
       }
-      const args = mode === 'global' ? [] : isGlobal ? ['--profile', mode]
-        : ['--skill', 'review-code', ...(mode === 'codex' ? ['--target', 'codex'] : [])];
+      const args = isGlobal ? [] : ['--skill', 'review-code', ...(mode === 'codex' ? ['--target', 'codex'] : [])];
       assert.equal(invoke(args, cwd).status, 1);
       assert(fs.lstatSync(destination).isSymbolicLink());
       assert(!fs.existsSync(missing));
@@ -278,16 +255,12 @@ test('npm artifact contains all skills and installed executable supports both de
   const packed = JSON.parse(npmRun(['pack', repo, '--pack-destination', cwd, '--json'], cwd).stdout)[0];
   assert.deepEqual(packed.files.map(file => file.path).sort(), [
     'README.md', 'bin/install.mjs', 'package.json', 'template/GLOBAL_WORKING_CONTEXT.md',
-    'profiles/ASTRA_LUNA.md', 'profiles/GEMINI_ANTIGRAVITY.md',
     ...expectedSkills.map(name => `skills/${name}/SKILL.md`),
   ].sort());
   const app = fresh();
   npmRun(['install', '--ignore-scripts', '--no-audit', '--no-fund', '--package-lock=false', path.join(cwd, packed.filename)], app);
   for (const name of expectedSkills) {
     equalSource(path.join(app, 'node_modules/global-working-context/skills', name, 'SKILL.md'), `skills/${name}/SKILL.md`);
-  }
-  for (const file of ['ASTRA_LUNA.md', 'GEMINI_ANTIGRAVITY.md']) {
-    equalSource(path.join(app, 'node_modules/global-working-context/profiles', file), `profiles/${file}`);
   }
   const shim = path.join(app, 'node_modules/.bin', process.platform === 'win32' ? 'global-working-context.cmd' : 'global-working-context');
   assert(fs.existsSync(shim));
@@ -305,15 +278,11 @@ test('npm artifact contains all skills and installed executable supports both de
     assert.equal(invokePackage(args, destination).status, 1);
     equalSource(path.join(destination, file), source);
   }
-  for (const [args, profile] of [
-    [['--profile', 'astra-luna'], 'ASTRA_LUNA.md'],
-    [['--profile=gemini_antigravity'], 'GEMINI_ANTIGRAVITY.md'],
-  ]) {
+  for (const args of [['--profile', 'astra-luna'], ['--profile=gemini_antigravity']]) {
     const destination = fresh();
-    const file = path.join(destination, 'GLOBAL_WORKING_CONTEXT.md');
-    assert.equal(invokePackage(args, destination).status, 0);
-    equalProfile(file, profile);
-    assert.equal(invokePackage(args, destination).status, 1);
-    equalProfile(file, profile);
+    const result = invokePackage(args, destination);
+    assert.equal(result.status, 1);
+    assert(result.stderr.includes('--profile has been removed'));
+    assert.deepEqual(fs.readdirSync(destination), []);
   }
 });

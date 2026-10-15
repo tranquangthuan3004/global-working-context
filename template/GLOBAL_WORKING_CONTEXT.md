@@ -25,7 +25,6 @@
 
 ### Cross-Project Collaboration Workflow
 
-- **Explicit Runtime Profiles**: Without an active runtime profile, use the flexible delegation workflow and Worker Reasoning Selection below. A profile is active only when explicitly selected by the user and included in this context. Its execution-topology and reasoning-role restrictions specialize those defaults; all other common rules remain in force. A profile assumes a compatible, already user-configured host: it never changes the model, reasoning effort, or agent configuration, overrides higher-priority runtime instructions, or overrides the user's explicit configuration. If the selected profile conflicts with that configuration or is unsupported, report the conflict instead of silently switching models or profiles.
 - The host-selected primary agent is responsible for discussing requirements, planning and agreeing scope, making decisions, delegating work when applicable, reviewing results, and reporting verified outcomes. It must use the model and tooling configuration selected by the user or host environment and must not change or override that configuration.
 - Primary/worker delegation is the preferred workflow when capable workers are available. The primary agent delegates repository investigation, implementation, testing, and command execution to workers and reviews their delivered content, diffs, and evidence. It must not bypass available delegation merely for convenience.
 - When worker delegation is unavailable, the primary agent may perform repository operations directly within the already authorized task scope; lack of worker support must not automatically block implementation. This fallback applies only when delegation is unavailable. Do not change the user-selected model, reasoning effort, or agent configuration without authorization. Report whether work was delegated or performed directly; never claim delegation occurred when it did not.
@@ -39,9 +38,18 @@
 - The final report is delivered directly in the session chat and states the changes plus any errors or blockers that prevented requested completion, backed by evidence delivered by the worker. Do not create an unsolicited report file.
 - This workflow applies to every project and session where this shared context is loaded. The user supplies or loads this shared file at the start of each session; it does not guarantee automatic loading.
 
+### Session Worker Configuration
+
+- Keep the primary agent's host-selected model, reasoning effort, and configuration. Do not ask the user to select the primary model again or change it independently.
+- Establish worker preferences only when the user proactively configures them or immediately before the first actual delegation that needs them. Reuse choices already established in the current session; do not delay tasks that do not require delegation with a model-selection prompt.
+- Use capabilities and selectable worker models/configurations explicitly exposed or confirmed by the current host and tools. Reading this context or a Skill does not grant tools, model availability, or configuration controls. Reuse current capability evidence; refresh it when the user or host changes the configuration or an actual failure invalidates it.
+- If no worker preference is established and the host supports a real choice, ask the user once using only supported options before spawning. If the host manages worker models without selection controls, explain that limitation instead of inventing a picker or claiming a model was selected. A user request for an unsupported configuration needs a supported choice or explicit acceptance of host-managed workers.
+- Keep worker model and reasoning preferences in active session context, not persistent configuration files. Reuse a user-established session default until changed; a task-specific override applies only to that task. Model selection does not authorize reasoning-effort changes. Preserve host-selected effort unless the user authorizes supported per-task selection or an override.
+- An unavailable requested worker model/configuration does not mean delegation itself is unavailable. Report the limitation and obtain a supported choice; do not silently substitute another worker or use direct execution to bypass the preference. Direct execution remains allowed only when worker delegation is genuinely unavailable, within the already authorized task scope.
+
 ### Worker Reasoning Selection
 
-- The primary agent selects the worker's reasoning effort independently for each delegated task based on the reasoning required for reliable completion, not on task size, file count, or task label alone.
+- Use the criteria below to assess or recommend reasoning effort based on what reliable completion requires, not task size, file count, or task label alone. Select effort per task only when supported by the host, authorized by the user, and not fixed by an explicit session default or task override. Otherwise retain the configured effort; do not treat these labels as runtime controls.
 
 - **Light**: Use when the task is bounded and deterministic, and can be completed primarily through retrieval, direct inspection, classification, mechanical transformation, or application of an obvious existing pattern, with little non-obvious behavioral reasoning required.
 
