@@ -17,7 +17,7 @@ const PROFILE_FILES = new Map([
   ['astra-luna', 'ASTRA_LUNA.md'],
   ['gemini-antigravity', 'GEMINI_ANTIGRAVITY.md'],
 ]);
-const usage = 'Usage: global-working-context [--profile <name>] | --skill <name> | --help';
+const usage = 'Usage: global-working-context [--profile <name>] | --skill <name> [--target codex] | --help';
 if (args.length === 1 && ['-h', '--help'].includes(args[0])) {
   console.log(usage);
   console.log('No arguments: neutral Global Context. Explicit profiles: astra-luna, gemini-antigravity.');
@@ -29,7 +29,7 @@ for (let i = 0; i < args.length; i++) {
   const equalsProfile = token.startsWith('--profile=');
   const option = equalsProfile ? '--profile' : token;
   const value = equalsProfile ? token.slice('--profile='.length) : args[++i];
-  if (!['--skill', '--profile'].includes(option) || options.has(option) || !value || value.startsWith('-')) {
+  if (!['--skill', '--target', '--profile'].includes(option) || options.has(option) || !value || value.startsWith('-')) {
     console.error(`Error: Invalid or repeated option, or missing value near "${token}".`);
     console.error(usage);
     process.exit(1);
@@ -37,6 +37,12 @@ for (let i = 0; i < args.length; i++) {
   options.set(option, value);
 }
 const skillName = options.get('--skill') ?? null;
+const target = options.get('--target') ?? null;
+if (target && (!skillName || target !== 'codex')) {
+  console.error('Error: --target requires --skill and currently supports only "codex".');
+  console.error(usage);
+  process.exit(1);
+}
 const requestedProfile = options.get('--profile');
 const profileName = requestedProfile === undefined ? null : requestedProfile.toLowerCase().trim().replaceAll('_', '-');
 if (profileName !== null && (!PROFILE_FILES.has(profileName) || skillName)) {
@@ -47,7 +53,7 @@ if (profileName !== null && (!PROFILE_FILES.has(profileName) || skillName)) {
 
 // --- Dispatch ---
 if (skillName) {
-  installSkill(skillName);
+  installSkill(skillName, target);
 } else {
   installGlobalContext(profileName);
 }
@@ -80,13 +86,13 @@ function installGlobalContext(profileName) {
     console.log(`Successfully installed ${GLOBAL_CONTEXT_FILE}${profileName ? ` (profile: ${profileName})` : ''}`);
     console.log(`Destination: ${destinationPath}`);
   } catch (err) {
-    console.error(`Error: Failed to copy ${GLOBAL_CONTEXT_FILE}: ${err.message}`);
+    console.error(`Error: Failed to install ${GLOBAL_CONTEXT_FILE}: ${err.message}`);
     process.exit(1);
   }
 }
 
 // --- Skill installation ---
-function installSkill(name) {
+function installSkill(name, target) {
   // Validate skill name: only word characters and hyphens; no path separators or dots
   if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
     console.error(`Error: Invalid skill name "${name}". Skill names may only contain letters, digits, hyphens, and underscores.`);
@@ -114,10 +120,9 @@ function installSkill(name) {
     process.exit(1);
   }
 
-  // Destination is always skills/<name>/SKILL.md relative to cwd.
-  // Agent-specific placement (e.g. .agents/skills/) is the user's responsibility.
-  // This installer does not silently choose an agent-specific location.
-  const destDir = path.resolve(process.cwd(), SKILLS_DIR, name);
+  // Keep the portable default; agent-specific placement requires an explicit target.
+  const destinationParts = target === 'codex' ? ['.agents', SKILLS_DIR, name] : [SKILLS_DIR, name];
+  const destDir = path.resolve(process.cwd(), ...destinationParts);
   const destFile = path.join(destDir, 'SKILL.md');
 
   if (destinationExists(destFile)) {
@@ -127,7 +132,8 @@ function installSkill(name) {
 
   try {
     // Reject linked destination directories to avoid writing outside this project.
-    for (const directory of [path.dirname(destDir), destDir]) {
+    for (let i = 1; i <= destinationParts.length; i++) {
+      const directory = path.resolve(process.cwd(), ...destinationParts.slice(0, i));
       try {
         const stat = fs.lstatSync(directory);
         if (stat.isSymbolicLink() || !stat.isDirectory()) {

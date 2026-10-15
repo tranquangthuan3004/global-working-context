@@ -7,6 +7,8 @@ description: A structured debugging workflow for tracing, reproducing, and fixin
 
 Use this skill when assigned a bug report or unexpected behavior to investigate and fix. Follow each phase in order. Do not skip phases or implement fixes without completing investigation first.
 
+Follow the loaded Global Working Context and supplied Project Context. When working directly without delegation, coordinate with the user wherever this workflow refers to the primary agent. Reuse existing task authorization under the Global Context; do not request redundant approval.
+
 ## Phase 1 — Understand the symptom
 
 - Read the full bug report: what was observed, what was expected, and any reproduction steps provided.
