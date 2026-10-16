@@ -19,9 +19,10 @@
 
 ### When Multiple Solutions Exist
 
-- Present possible solution directions and their tradeoffs to the user.
-- Wait for the user to choose the execution direction.
-- Never automatically choose a direction or proceed with an unchosen solution.
+- Present viable alternatives and meaningful tradeoffs, and obtain the user's decision before implementing a choice that materially affects architecture, observable behavior, security, cost, compatibility, or authorized scope.
+- Make minor implementation decisions independently within the approved task using existing repository conventions. This does not authorize scope expansion.
+- Reuse existing task or plan authorization; do not repeatedly request approval for included steps. Honor explicit review checkpoints.
+- Ask for clarification when requirements are ambiguous or an important product or architecture decision remains unresolved before proceeding with dependent work.
 
 ### Cross-Project Collaboration Workflow
 

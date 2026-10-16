@@ -5,7 +5,7 @@ description: A structured debugging workflow for tracing, reproducing, and fixin
 
 # Skill: diagnose-bug
 
-Use this skill when assigned a bug report or unexpected behavior to investigate and fix. Follow each phase in order. Do not skip phases or implement fixes without completing investigation first.
+Use this skill when assigned a bug report or unexpected behavior to investigate and fix. Treat the eight phases as responsibilities: combine or shorten straightforward phases when sufficient verified evidence already exists instead of repeating investigation. Still establish the symptom and expected behavior, gather relevant evidence, reproduce when feasible, substantiate the root cause, apply only an authorized fix, verify the correction and relevant regressions, and report evidence and limitations. Do not skip necessary investigation or claim an unverified fix.
 
 Follow the loaded Global Working Context and supplied Project Context. When working directly without delegation, coordinate with the user wherever this workflow refers to the primary agent. Reuse existing task authorization under the Global Context; do not request redundant approval.
 
@@ -29,7 +29,8 @@ Follow the loaded Global Working Context and supplied Project Context. When work
 - Attempt to reproduce the failure using the available test suite, a targeted test command, or a minimal reproduction from the report.
 - If a direct reproduction command exists, prefer it over constructing a new one.
 - If the bug cannot be reproduced from the given information, document why and continue with analysis of the code and evidence available.
-- Do not add temporary logging or instrumentation unless reproduction is otherwise impossible and the primary agent has authorized it.
+- Use temporary logging or instrumentation when useful within the approved task or plan. Existing authorization is sufficient; do not request duplicate approval. Seek additional authorization only for work outside that scope or new material risks not covered by it.
+- Do not expose secrets in logs or other output, modify production systems, or affect unrelated environments through debugging instrumentation. Remove temporary debugging changes before final verification unless their permanent inclusion is authorized.
 
 ## Phase 4 — Form and evaluate hypotheses
 
@@ -44,7 +45,7 @@ Follow the loaded Global Working Context and supplied Project Context. When work
 
 - Identify the smallest code change that corrects the root cause without altering unrelated behavior.
 - Verify that the fix does not break adjacent logic or existing tests.
-- If multiple fix approaches exist, present them to the primary agent with tradeoffs before proceeding.
+- If fix approaches involve a material decision under the Global Working Context, present the alternatives and tradeoffs to the primary agent (or the user when working directly) before proceeding. Minor implementation choices within the approved scope may follow existing repository conventions.
 - Do not implement the fix at this phase. Implementation requires authorization (see Phase 6).
 
 ## Phase 6 — Apply the fix (requires authorization)
