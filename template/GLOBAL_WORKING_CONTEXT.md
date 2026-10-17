@@ -151,7 +151,7 @@ chore: update dependencies
 
 ### Stage, Commit, and Push
 
-From the repository root, the user explicitly wants all repository changes staged with `git add .`, including new untracked nonignored files, modifications, and deletions. Do not selectively stage tracked files or require manual prior tracking. Exclusions remain the user's `.gitignore` preference; remember that `.gitignore` does not untrack an already-tracked file. Check status before staging and staged status/diff afterward to verify that required new files are included. Before committing, inspect the full staged diff, including a secrets check. If sensitive undesired files are present, identify them and handle their exclusion appropriately; never commit secrets. Do not assume a branch, remote, or default target. Run Git steps sequentially and only after the preceding step succeeds:
+From the repository root, the user explicitly wants all intended, task-authorized repository changes staged with `git add .`, including new untracked nonignored files, modifications, and deletions. Do not selectively stage tracked files or require manual prior tracking. Exclusions remain the user's `.gitignore` preference; remember that `.gitignore` does not untrack an already-tracked file. Check status before staging and inspect staged status and the full staged diff afterward, including a secrets check. Never include unrelated, unauthorized, or sensitive changes in the commit. If staging would include such changes, stop before staging and explain the issue; if they are already staged, stop before committing and obtain the user's explicit decision. Do not discard, overwrite, reset, or unstage existing work without authorization. The final commit must contain only task-authorized changes and never secrets. Do not assume a branch, remote, or default target. Run Git steps sequentially and only after the preceding step succeeds:
 
 ```bash
 git add .
@@ -179,9 +179,9 @@ Use the actual project remote and branch. Do not commit or push without explicit
 
 ### Docker Logs
 
-- **Always use `--tail 100`**: Never use real-time logs (`-f` flag)
-- **Correct command**: `docker logs <container-name> --tail 100`
-- **Never use**: `docker logs -f <container-name>` (real-time monitoring)
+- Start with a bounded recent sample by default: `docker logs <container-name> --tail 100`.
+- If that sample omits necessary evidence, expand the bounded range or use targeted timestamps and filters. Gather enough evidence for a correct diagnosis rather than treating 100 lines as a hard limit.
+- Avoid unbounded or unnecessarily large output. Do not use real-time following (`-f`) by default.
 
 ---
 

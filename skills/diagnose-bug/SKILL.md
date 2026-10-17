@@ -12,9 +12,8 @@ Follow the loaded Global Working Context and supplied Project Context. When work
 ## Phase 1 — Understand the symptom
 
 - Read the full bug report: what was observed, what was expected, and any reproduction steps provided.
-- Identify affected components, entry points, or user-facing behaviors from the description alone.
-- Note what information is missing. Ask for clarification from the primary agent if symptoms are ambiguous and cannot be resolved by reading existing evidence.
-- Do not begin code investigation until you have a clear picture of what constitutes a pass and a fail.
+- Identify likely affected components, entry points, or user-facing behaviors. Use targeted, read-only inspection of relevant code, tests, contracts, or documentation when needed to clarify expected behavior before it is fully understood.
+- Distinguish confirmed expected behavior from assumptions. Ask the primary agent when available evidence cannot resolve ambiguity about the intended outcome; do not implement a fix while material expected behavior remains unresolved.
 
 ## Phase 2 — Gather evidence
 
@@ -44,7 +43,7 @@ Follow the loaded Global Working Context and supplied Project Context. When work
 ## Phase 5 — Identify the fix
 
 - Identify the smallest code change that corrects the root cause without altering unrelated behavior.
-- Verify that the fix does not break adjacent logic or existing tests.
+- Assess regression risks to affected behavior, callers, contracts, existing tests, and compatibility. Run useful baseline checks when appropriate, but do not claim an unimplemented fix has passed verification; post-fix verification belongs in Phase 7.
 - If fix approaches involve a material decision under the Global Working Context, present the alternatives and tradeoffs to the primary agent (or the user when working directly) before proceeding. Minor implementation choices within the approved scope may follow existing repository conventions.
 - Do not implement the fix at this phase. Implementation requires authorization (see Phase 6).
 
